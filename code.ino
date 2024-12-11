@@ -1,91 +1,91 @@
 #include <Servo.h>
 
-// تعريف الدبابيس
-const int trigPin = 12;    // TRIG للمستشعر
-const int echoPin = 13;    // ECHO للمستشعر
-Servo motor;               // محرك سيرفو
-const int motorPin = 5;    // دبوس المحرك
+// Define pins for the ultrasonic sensor
+const int trigPin = 12;    // TRIG pin for the ultrasonic sensor
+const int echoPin = 13;    // ECHO pin for the ultrasonic sensor
+Servo motor;               // Servo motor object
+const int motorPin = 5;    // Pin for the servo motor
 
-// متغيرات التحكم
-float setPoint = 17.0;     // النقطة المرجعية (منتصف العارضة)
-float Kp =1;            // ثابت التناسب (P) - زيادة طفيفة
-float Ki = 0.0;           // ثابت التكامل (I) - قيمة صغيرة لمنع تراكم الأخطاء الزائد
-float Kd = 0;            // ثابت التفاضل (D) - زيادة بسيطة لتقليل التجاوز
+// Control parameters
+float setPoint = 17.0;     // Target distance (center of the bar)
+float Kp = 1;              // Proportional constant (P) - slight increase
+float Ki = 0.0;            // Integral constant (I) - small value to prevent excessive error accumulation
+float Kd = 0;              // Derivative constant (D) - slight increase to reduce overshoot
 
-// متغيرات PID
+// PID variables
 float error = 0, lastError = 0;
 float integral = 0;
 float derivative = 0;
 float output = 0;
 
-// دوال
-float readDistance();
-void pidControl(float distance);
+// Function prototypes
+float readDistance();      // Reads distance from the ultrasonic sensor
+void pidControl(float distance); // Controls the motor using the PID algorithm
 
 void setup() {
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-  
-  motor.attach(motorPin);  // توصيل السيرفو
-  motor.write(90);         // البداية عند الوضع الأفقي
-  
-  Serial.begin(9600);      // لمراقبة النتائج
+  pinMode(trigPin, OUTPUT); // Set TRIG pin as output
+  pinMode(echoPin, INPUT);  // Set ECHO pin as input
+
+  motor.attach(motorPin);  // Attach the servo motor
+  motor.write(90);         // Start at horizontal position
+
+  Serial.begin(9600);      // Begin serial communication for monitoring
 }
 
 void loop() {
-  // قراءة المسافة
+  // Read distance from the ultrasonic sensor
   float distance = readDistance();
-  
-  if (distance >= 0 && distance <= 30) { // إذا كانت القراءة صحيحة
+
+  // If the reading is valid
+  if (distance >= 0 && distance <= 30) {
     Serial.print("Distance: ");
     Serial.println(distance);
-    
-    // التحكم بالموتور باستخدام PID
+
+    // Control the motor using PID
     pidControl(distance);
   } else {
-     motor.write(90); // الوضع الأفقي الافتراضي
+    motor.write(90); // Default horizontal position
   }
-  
-  delay(10); // تقليل التأخير لضمان استجابة أسرع
+
+  delay(10); // Small delay for faster response
 }
 
-// قراءة المسافة باستخدام Ultrasonic
+// Function to read distance using the ultrasonic sensor
 float readDistance() {
-  // إرسال نبضة TRIG قصيرة
+  // Send a short TRIG pulse
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10); // عرض نبضة أطول قليلاً
+  delayMicroseconds(10); // Slightly longer pulse width
   digitalWrite(trigPin, LOW);
-  
-  // قراءة مدة النبضة المرتدة مع مهلة زمنية قصيرة
-  unsigned long duration = pulseIn(echoPin, HIGH, 20000); // مهلة 20ms
+
+  // Measure the duration of the reflected pulse with a short timeout
+  unsigned long duration = pulseIn(echoPin, HIGH, 20000); // 20ms timeout
   if (duration == 0) {
-    return -1; // لم تُرصد إشارة
+    return -1; // No signal detected
   }
-  
-  // حساب المسافة وإرجاعها
+
+  // Calculate and return the distance
   float distance = (duration / 2.0) * 0.0343;
   return distance;
 }
 
-// خوارزمية التحكم PID
+// PID control algorithm
 void pidControl(float distance) {
-  // حساب الخطأ
+  // Calculate the error
   error = setPoint - distance;
-  
-  // حساب التكامل والتفاضل
-  integral += error * 0.01; // تحسين التكامل بقيمة صغيرة (لتجنب التراكم الزائد)
-  derivative = (error - lastError) / 0.01; // حساب الفرق على فاصل زمني ثابت
-  
-  // حساب الخرج
+
+  // Calculate integral and derivative terms
+  integral += error * 0.01; // Improve integral with a small value to avoid excessive accumulation
+  derivative = (error - lastError) / 0.01; // Calculate derivative over a fixed time interval
+
+  // Calculate output using PID formula
   output = (Kp * error) + (Ki * integral) + (Kd * derivative);
-  
-  // ضبط زوايا المحرك (محدودة بين 0 و180)
-  int angle = 90 + output;  // 90 هي الوضع الأفقي
+
+  // Adjust motor angle (limit between 0 and 180 degrees)
+  int angle = 90 + output;  // 90 is the horizontal position
   angle = constrain(angle, 70, 110);
-   Serial.println(angle);
-  
-  motor.write(angle);       // تحريك الموتور
-  lastError = error;        // تحديث الخطأ السابق
+
+  motor.write(angle);       // Move the motor to the calculated position
+  lastError = error;        // Update the last error value
 }
